@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
 import { PROGRESS_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS, DAY_OPTIONS } from './constants.js';
+import { Loading, ErrorState } from './Status.jsx';
 
 const FIELDS = [
   { key: 'day', label: 'Day', type: 'select', options: DAY_OPTIONS },
@@ -17,18 +18,22 @@ const FIELDS = [
 export default function RecurringTable() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
-    api.listRecurring().then(setRows).finally(() => setLoading(false));
+    setError(null);
+    api.listRecurring().then(setRows).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const handleAdd = async () => {
-    const created = await api.createRecurring({ day: 'Weekly', task_name: '', to_add: 'No' });
+    const name = window.prompt('Recurring task name:');
+    if (!name || !name.trim()) return;
+    const created = await api.createRecurring({ day: 'Weekly', task_name: name.trim(), to_add: 'No' });
     setRows((r) => [created, ...r]);
   };
 
@@ -55,7 +60,8 @@ export default function RecurringTable() {
     }
   };
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <Loading />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="table-wrap">

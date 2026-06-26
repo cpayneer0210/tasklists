@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
+import { Loading, ErrorState } from './Status.jsx';
 
 function buildCalendar(year, month) {
   const firstDay = new Date(year, month, 1);
@@ -13,11 +14,18 @@ function buildCalendar(year, month) {
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d; });
 
-  useEffect(() => { api.dashboard().then(setData); }, []);
+  const load = useCallback(() => {
+    setError(null);
+    api.dashboard().then(setData).catch((e) => setError(e.message));
+  }, []);
 
-  if (!data) return <p>Loading...</p>;
+  useEffect(() => { load(); }, [load]);
+
+  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (!data) return <Loading />;
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
+import { Loading, ErrorState } from './Status.jsx';
 
 const COLUMNS = [
   { key: 'overdue', label: 'Overdue' },
@@ -10,10 +11,17 @@ const COLUMNS = [
 
 export default function Kanban() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
 
-  useEffect(() => { api.kanban().then(setData); }, []);
+  const load = useCallback(() => {
+    setError(null);
+    api.kanban().then(setData).catch((e) => setError(e.message));
+  }, []);
 
-  if (!data) return <p>Loading...</p>;
+  useEffect(() => { load(); }, [load]);
+
+  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (!data) return <Loading />;
 
   return (
     <div className="kanban">

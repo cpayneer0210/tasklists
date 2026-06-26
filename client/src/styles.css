@@ -30,3 +30,7 @@ button { cursor: pointer; }
 .calendar-cell { min-height: 70px; border: 1px solid #eee; border-radius: 4px; padding: 2px; font-size: 11px; }
 .calendar-day-num { font-weight: bold; }
 .calendar-task { background: #d0ebff; border-radius: 3px; padding: 1px 3px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.status { padding: 24px; text-align: center; color: #666; }
+.status-error { color: #c92a2a; }
+.status-error button { margin-top: 8px; }
