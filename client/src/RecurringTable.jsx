@@ -40,8 +40,11 @@ export default function RecurringTable({ area }) {
     setRows((r) => [created, ...r]);
   };
 
-  const handleChange = async (id, key, value) => {
+  const handleLocalChange = (id, key, value) => {
     setRows((r) => r.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
+  };
+
+  const handleCommit = async (id, key, value) => {
     const updated = await api.updateRecurring(id, { [key]: value });
     const stillVisible = !area || updated.area === area;
     setRows((r) => (stillVisible ? r.map((row) => (row.id === id ? updated : row)) : r.filter((row) => row.id !== id)));
@@ -87,7 +90,10 @@ export default function RecurringTable({ area }) {
               {FIELDS.map((f) => (
                 <td key={f.key}>
                   {f.type === 'select' ? (
-                    <select value={row[f.key] || ''} onChange={(e) => handleChange(row.id, f.key, e.target.value)}>
+                    <select
+                      value={row[f.key] || ''}
+                      onChange={(e) => { handleLocalChange(row.id, f.key, e.target.value); handleCommit(row.id, f.key, e.target.value); }}
+                    >
                       <option value=""></option>
                       {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
@@ -95,7 +101,8 @@ export default function RecurringTable({ area }) {
                     <input
                       type={f.type}
                       value={row[f.key] ? (f.type === 'date' ? row[f.key].slice(0, 10) : row[f.key]) : ''}
-                      onChange={(e) => handleChange(row.id, f.key, e.target.value)}
+                      onChange={(e) => handleLocalChange(row.id, f.key, e.target.value)}
+                      onBlur={(e) => handleCommit(row.id, f.key, e.target.value)}
                     />
                   )}
                 </td>
