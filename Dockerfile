@@ -1,9 +1,10 @@
 FROM --platform=linux/amd64 node:20-slim AS build
 WORKDIR /app
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y python3 make g++ file && rm -rf /var/lib/apt/lists/*
 ENV npm_config_build_from_source=true
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --foreground-scripts
+RUN file /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node && uname -m
 COPY . .
 RUN npm run build
 
