@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
-import { PROGRESS_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS, DAY_OPTIONS } from './constants.js';
+import { PROGRESS_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS, DAY_OPTIONS, AREA_OPTIONS } from './constants.js';
 import { Loading, ErrorState } from './Status.jsx';
 
 const FIELDS = [
+  { key: 'area', label: 'Area', type: 'select', options: AREA_OPTIONS },
   { key: 'day', label: 'Day', type: 'select', options: DAY_OPTIONS },
   { key: 'type', label: 'Type', type: 'select', options: TYPE_OPTIONS },
   { key: 'task_name', label: 'Task List', type: 'text' },
@@ -15,7 +16,7 @@ const FIELDS = [
   { key: 'to_add', label: 'To Add', type: 'select', options: ['Yes', 'No'] },
 ];
 
-export default function RecurringTable() {
+export default function RecurringTable({ area }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,22 +26,25 @@ export default function RecurringTable() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    api.listRecurring().then(setRows).catch((e) => setError(e.message)).finally(() => setLoading(false));
-  }, []);
+    api.listRecurring(area).then(setRows).catch((e) => setError(e.message)).finally(() => setLoading(false));
+  }, [area]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleAdd = async () => {
     const name = window.prompt('Recurring task name:');
     if (!name || !name.trim()) return;
-    const created = await api.createRecurring({ day: 'Weekly', task_name: name.trim(), to_add: 'No' });
+    const created = await api.createRecurring({
+      day: 'Weekly', task_name: name.trim(), to_add: 'No', area: area || 'Personal',
+    });
     setRows((r) => [created, ...r]);
   };
 
   const handleChange = async (id, key, value) => {
     setRows((r) => r.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
     const updated = await api.updateRecurring(id, { [key]: value });
-    setRows((r) => r.map((row) => (row.id === id ? updated : row)));
+    const stillVisible = !area || updated.area === area;
+    setRows((r) => (stillVisible ? r.map((row) => (row.id === id ? updated : row)) : r.filter((row) => row.id !== id)));
   };
 
   const handleDelete = async (id) => {

@@ -13,12 +13,12 @@ app.use(express.json());
 const TASK_COLUMNS = [
   'list', 'type', 'task_name', 'progress', 'priority', 'deadline', 'link',
   'task_focus', 'notes', 'value_add', 'task_added', 'task_started',
-  'task_complete', 'met_deadline', 'week_start',
+  'task_complete', 'met_deadline', 'week_start', 'area',
 ];
 
 const RECURRING_COLUMNS = [
   'day', 'type', 'task_name', 'progress', 'priority', 'deadline', 'link',
-  'task_focus', 'last_added', 'to_add',
+  'task_focus', 'last_added', 'to_add', 'area',
 ];
 
 function pick(obj, keys) {
@@ -41,16 +41,20 @@ async function getAll(sql, args) {
 // --- Tasks ---
 
 app.get('/api/tasks', async (req, res) => {
-  const { list } = req.query;
-  const rows = list
-    ? await getAll('SELECT * FROM tasks WHERE list = ? ORDER BY id DESC', [list])
-    : await getAll('SELECT * FROM tasks ORDER BY id DESC', []);
+  const { list, area } = req.query;
+  const conditions = [];
+  const args = [];
+  if (list) { conditions.push('list = ?'); args.push(list); }
+  if (area) { conditions.push('area = ?'); args.push(area); }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rows = await getAll(`SELECT * FROM tasks ${where} ORDER BY id DESC`, args);
   res.json(rows);
 });
 
 app.post('/api/tasks', async (req, res) => {
   const body = pick(req.body, TASK_COLUMNS);
   body.list = body.list || 'task_list';
+  body.area = body.area || 'Personal';
   const patched = applyTaskTimestamps(null, body);
   const cols = Object.keys(patched);
   const placeholders = cols.map(() => '?').join(',');
@@ -89,13 +93,17 @@ app.delete('/api/tasks/:id', async (req, res) => {
 // --- Recurring ---
 
 app.get('/api/recurring', async (req, res) => {
-  const rows = await getAll('SELECT * FROM recurring ORDER BY id DESC', []);
+  const { area } = req.query;
+  const rows = area
+    ? await getAll('SELECT * FROM recurring WHERE area = ? ORDER BY id DESC', [area])
+    : await getAll('SELECT * FROM recurring ORDER BY id DESC', []);
   const withComputed = rows.map((r) => ({ ...r, days_since_last: daysSinceLast(r.last_added) }));
   res.json(withComputed);
 });
 
 app.post('/api/recurring', async (req, res) => {
   const body = pick(req.body, RECURRING_COLUMNS);
+  body.area = body.area || 'Personal';
   const cols = Object.keys(body);
   const placeholders = cols.map(() => '?').join(',');
   const rs = await db.execute({
@@ -135,9 +143,9 @@ app.post('/api/recurring/run-copy', async (req, res) => {
 
   for (const r of due) {
     const rs = await db.execute({
-      sql: `INSERT INTO tasks (list, type, task_name, progress, priority, deadline, link, task_focus, task_added)
-            VALUES ('task_list', ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [r.type, r.task_name, r.progress, r.priority, r.deadline, r.link, r.task_focus, now],
+      sql: `INSERT INTO tasks (list, type, task_name, progress, priority, deadline, link, task_focus, task_added, area)
+            VALUES ('task_list', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [r.type, r.task_name, r.progress, r.priority, r.deadline, r.link, r.task_focus, now, r.area || 'Personal'],
     });
     await db.execute({ sql: 'UPDATE recurring SET last_added = ? WHERE id = ?', args: [now, r.id] });
     created.push(await getOne('SELECT * FROM tasks WHERE id = ?', [Number(rs.lastInsertRowid)]));
@@ -149,7 +157,10 @@ app.post('/api/recurring/run-copy', async (req, res) => {
 // --- Kanban ---
 
 app.get('/api/kanban', async (req, res) => {
-  const rows = await getAll("SELECT * FROM tasks WHERE list IN ('task_list', 'parked', 'done')", []);
+  const { area } = req.query;
+  const rows = area
+    ? await getAll("SELECT * FROM tasks WHERE list IN ('task_list', 'parked', 'done') AND area = ?", [area])
+    : await getAll("SELECT * FROM tasks WHERE list IN ('task_list', 'parked', 'done')", []);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const fourteenDaysAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -184,10 +195,16 @@ app.get('/api/kanban', async (req, res) => {
 // --- Dashboard ---
 
 app.get('/api/dashboard', async (req, res) => {
-  const pending = await getAll("SELECT * FROM tasks WHERE progress = 'Pending' ORDER BY deadline ASC", []);
+  const { area } = req.query;
+  const areaClause = area ? ' AND area = ?' : '';
+  const areaArgs = area ? [area] : [];
+  const pending = await getAll(
+    `SELECT * FROM tasks WHERE progress = 'Pending'${areaClause} ORDER BY deadline ASC`,
+    areaArgs,
+  );
   const calendarRows = await getAll(
-    "SELECT * FROM tasks WHERE deadline IS NOT NULL AND deadline != '' AND list != 'done'",
-    [],
+    `SELECT * FROM tasks WHERE deadline IS NOT NULL AND deadline != '' AND list != 'done'${areaClause}`,
+    areaArgs,
   );
   res.json({ pending, calendar: calendarRows });
 });

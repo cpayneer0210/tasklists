@@ -10,18 +10,24 @@ async function request(path, options) {
   return res.json();
 }
 
+function qs(params) {
+  const entries = Object.entries(params).filter(([, v]) => v);
+  if (entries.length === 0) return '';
+  return `?${entries.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')}`;
+}
+
 export const api = {
-  listTasks: (list) => request(`/tasks${list ? `?list=${list}` : ''}`),
+  listTasks: (list, area) => request(`/tasks${qs({ list, area })}`),
   createTask: (data) => request('/tasks', { method: 'POST', body: JSON.stringify(data) }),
   updateTask: (id, data) => request(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
 
-  listRecurring: () => request('/recurring'),
+  listRecurring: (area) => request(`/recurring${qs({ area })}`),
   createRecurring: (data) => request('/recurring', { method: 'POST', body: JSON.stringify(data) }),
   updateRecurring: (id, data) => request(`/recurring/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRecurring: (id) => request(`/recurring/${id}`, { method: 'DELETE' }),
   runRecurringCopy: () => request('/recurring/run-copy', { method: 'POST' }),
 
-  kanban: () => request('/kanban'),
-  dashboard: () => request('/dashboard'),
+  kanban: (area) => request(`/kanban${qs({ area })}`),
+  dashboard: (area) => request(`/dashboard${qs({ area })}`),
 };

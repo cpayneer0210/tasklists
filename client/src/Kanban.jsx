@@ -9,14 +9,14 @@ const COLUMNS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-export default function Kanban() {
+export default function Kanban({ area }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
   const load = useCallback(() => {
     setError(null);
-    api.kanban().then(setData).catch((e) => setError(e.message));
-  }, []);
+    api.kanban(area).then(setData).catch((e) => setError(e.message));
+  }, [area]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -31,7 +31,7 @@ export default function Kanban() {
           {data[col.key].map((t) => (
             <div className="kanban-card" key={t.id}>
               <strong>{t.task_name || '(untitled)'}</strong>
-              <div className="kanban-meta">{t.priority}</div>
+              <div className="kanban-meta">{t.area} {t.priority && `· ${t.priority}`}</div>
               {t.deadline && <div className="kanban-meta">Due: {String(t.deadline).slice(0, 10)}</div>}
             </div>
           ))}

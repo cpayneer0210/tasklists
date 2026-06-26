@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
-import { PROGRESS_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS } from './constants.js';
+import { PROGRESS_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS, AREA_OPTIONS } from './constants.js';
 import { Loading, ErrorState } from './Status.jsx';
 
 const FIELDS = [
+  { key: 'area', label: 'Area', type: 'select', options: AREA_OPTIONS },
   { key: 'type', label: 'Type', type: 'select', options: TYPE_OPTIONS },
   { key: 'task_name', label: 'Task List', type: 'text' },
   { key: 'progress', label: 'Progress', type: 'select', options: PROGRESS_OPTIONS },
@@ -22,7 +23,7 @@ const TIMESTAMP_FIELDS = [
   { key: 'met_deadline', label: 'Met Deadline' },
 ];
 
-export default function TaskTable({ list, allowAdd = true, allowDelete = true }) {
+export default function TaskTable({ list, area, allowAdd = true, allowDelete = true }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,22 +31,25 @@ export default function TaskTable({ list, allowAdd = true, allowDelete = true })
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    api.listTasks(list).then(setRows).catch((e) => setError(e.message)).finally(() => setLoading(false));
-  }, [list]);
+    api.listTasks(list, area).then(setRows).catch((e) => setError(e.message)).finally(() => setLoading(false));
+  }, [list, area]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleAdd = async () => {
     const name = window.prompt('Task name:');
     if (!name || !name.trim()) return;
-    const created = await api.createTask({ list, task_name: name.trim(), progress: 'Not Started' });
+    const created = await api.createTask({
+      list, task_name: name.trim(), progress: 'Not Started', area: area || 'Personal',
+    });
     setRows((r) => [created, ...r]);
   };
 
   const handleChange = async (id, key, value) => {
     setRows((r) => r.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
     const updated = await api.updateTask(id, { [key]: value });
-    setRows((r) => (updated.list === list ? r.map((row) => (row.id === id ? updated : row)) : r.filter((row) => row.id !== id)));
+    const stillVisible = updated.list === list && (!area || updated.area === area);
+    setRows((r) => (stillVisible ? r.map((row) => (row.id === id ? updated : row)) : r.filter((row) => row.id !== id)));
   };
 
   const handleDelete = async (id) => {

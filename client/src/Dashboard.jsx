@@ -12,15 +12,15 @@ function buildCalendar(year, month) {
   return cells;
 }
 
-export default function Dashboard() {
+export default function Dashboard({ area }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d; });
 
   const load = useCallback(() => {
     setError(null);
-    api.dashboard().then(setData).catch((e) => setError(e.message));
-  }, []);
+    api.dashboard(area).then(setData).catch((e) => setError(e.message));
+  }, [area]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -50,7 +50,7 @@ export default function Dashboard() {
         <ul>
           {data.pending.map((t) => (
             <li key={t.id}>
-              {t.task_name || '(untitled)'} {t.deadline && `— due ${String(t.deadline).slice(0, 10)}`}
+              [{t.area}] {t.task_name || '(untitled)'} {t.deadline && `— due ${String(t.deadline).slice(0, 10)}`}
             </li>
           ))}
           {data.pending.length === 0 && <li>No pending tasks.</li>}

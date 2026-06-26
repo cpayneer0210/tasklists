@@ -63,4 +63,15 @@ CREATE TABLE IF NOT EXISTS recurring (
 )
 `);
 
+async function ensureColumn(table, column, ddl) {
+  const rs = await db.execute(`PRAGMA table_info(${table})`);
+  const cols = rowsToObjects(rs).map((r) => r.name);
+  if (!cols.includes(column)) {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+await ensureColumn('tasks', 'area', "area TEXT DEFAULT 'Personal'");
+await ensureColumn('recurring', 'area', "area TEXT DEFAULT 'Personal'");
+
 export default db;

@@ -3,6 +3,7 @@ import TaskTable from './TaskTable.jsx';
 import RecurringTable from './RecurringTable.jsx';
 import Kanban from './Kanban.jsx';
 import Dashboard from './Dashboard.jsx';
+import { AREA_OPTIONS } from './constants.js';
 
 const PAGES = [
   { key: 'task_list', label: 'Task List' },
@@ -15,6 +16,7 @@ const PAGES = [
 
 export default function App() {
   const [page, setPage] = useState('task_list');
+  const [area, setArea] = useState('');
 
   return (
     <div className="app">
@@ -28,14 +30,18 @@ export default function App() {
             {p.label}
           </button>
         ))}
+        <select className="area-select" value={area} onChange={(e) => setArea(e.target.value)}>
+          <option value="">All Areas</option>
+          {AREA_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
       </nav>
       <main>
-        {page === 'task_list' && <TaskTable list="task_list" />}
-        {page === 'parked' && <TaskTable list="parked" />}
-        {page === 'done' && <TaskTable list="done" allowAdd={false} />}
-        {page === 'recurring' && <RecurringTable />}
-        {page === 'kanban' && <Kanban />}
-        {page === 'dashboard' && <Dashboard />}
+        {page === 'task_list' && <TaskTable list="task_list" area={area} />}
+        {page === 'parked' && <TaskTable list="parked" area={area} />}
+        {page === 'done' && <TaskTable list="done" area={area} allowAdd={false} />}
+        {page === 'recurring' && <RecurringTable area={area} />}
+        {page === 'kanban' && <Kanban area={area} />}
+        {page === 'dashboard' && <Dashboard area={area} />}
       </main>
     </div>
   );
