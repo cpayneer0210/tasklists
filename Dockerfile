@@ -5,7 +5,7 @@ ENV NODE_ENV=production
 ENV DATA_DIR=/data
 ENV npm_config_build_from_source=true
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 EXPOSE 3001
