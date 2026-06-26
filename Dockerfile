@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y python3 make g++ file && rm -rf /var/li
 ENV npm_config_build_from_source=true
 COPY package.json package-lock.json ./
 RUN npm ci --foreground-scripts
-RUN file /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node && uname -m
+RUN echo "=== DIAG START ===" && uname -m && file /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node && echo "=== DIAG END ===" && exit 1
 COPY . .
 RUN npm run build
 
