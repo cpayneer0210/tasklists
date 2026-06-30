@@ -88,7 +88,7 @@ export default function RecurringTable({ area }) {
           {rows.map((row) => (
             <tr key={row.id}>
               {FIELDS.map((f) => (
-                <td key={f.key}>
+                <td key={f.key} data-label={f.label}>
                   {f.type === 'select' ? (
                     <select
                       value={row[f.key] || ''}
@@ -107,9 +107,9 @@ export default function RecurringTable({ area }) {
                   )}
                 </td>
               ))}
-              <td className="readonly">{row.last_added ? String(row.last_added).slice(0, 10) : ''}</td>
-              <td className="readonly">{row.days_since_last ?? ''}</td>
-              <td><button onClick={() => handleDelete(row.id)}>Delete</button></td>
+              <td className="readonly" data-label="Last Added">{row.last_added ? String(row.last_added).slice(0, 10) : ''}</td>
+              <td className="readonly" data-label="Days Since Last">{row.days_since_last ?? ''}</td>
+              <td data-label=""><button onClick={() => handleDelete(row.id)}>Delete</button></td>
             </tr>
           ))}
         </tbody>

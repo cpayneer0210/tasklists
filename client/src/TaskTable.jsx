@@ -78,7 +78,7 @@ export default function TaskTable({ list, area, allowAdd = true, allowDelete = t
           {rows.map((row) => (
             <tr key={row.id}>
               {FIELDS.map((f) => (
-                <td key={f.key}>
+                <td key={f.key} data-label={f.label}>
                   {f.type === 'select' ? (
                     <select
                       value={row[f.key] || ''}
@@ -98,9 +98,9 @@ export default function TaskTable({ list, area, allowAdd = true, allowDelete = t
                 </td>
               ))}
               {TIMESTAMP_FIELDS.map((f) => (
-                <td key={f.key} className="readonly">{row[f.key] ? String(row[f.key]).slice(0, 10) : ''}</td>
+                <td key={f.key} className="readonly" data-label={f.label}>{row[f.key] ? String(row[f.key]).slice(0, 10) : ''}</td>
               ))}
-              {allowDelete && <td><button onClick={() => handleDelete(row.id)}>Delete</button></td>}
+              {allowDelete && <td data-label=""><button onClick={() => handleDelete(row.id)}>Delete</button></td>}
             </tr>
           ))}
         </tbody>
