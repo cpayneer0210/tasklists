@@ -183,6 +183,10 @@ td button:hover { background: rgba(201, 42, 42, 0.2); }
   min-height: 200px;
 }
 .kanban-column h3 { margin-top: 4px; font-size: 14px; color: var(--text-muted); }
+.kanban-column.drag-over {
+  background: var(--row-hover);
+  border-color: var(--accent);
+}
 .kanban-card {
   background: var(--glass-bg-strong);
   border: 1px solid var(--glass-border);
@@ -190,7 +194,10 @@ td button:hover { background: rgba(201, 42, 42, 0.2); }
   padding: 10px 12px;
   margin: 8px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  cursor: grab;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
+.kanban-card:active { cursor: grabbing; opacity: 0.7; transform: scale(0.98); }
 .kanban-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
 .dashboard { display: flex; gap: 16px; }

@@ -22,6 +22,8 @@ export default function RecurringTable({ area }) {
   const [error, setError] = useState(null);
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [draftName, setDraftName] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -31,11 +33,13 @@ export default function RecurringTable({ area }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleAdd = async () => {
-    const name = window.prompt('Recurring task name:');
-    if (!name || !name.trim()) return;
+  const commitAdd = async () => {
+    const name = draftName.trim();
+    setAdding(false);
+    setDraftName('');
+    if (!name) return;
     const created = await api.createRecurring({
-      day: 'Weekly', task_name: name.trim(), to_add: 'No', area: area || 'Personal',
+      day: 'Weekly', task_name: name, to_add: 'No', area: area || 'Personal',
     });
     setRows((r) => [created, ...r]);
   };
@@ -51,6 +55,7 @@ export default function RecurringTable({ area }) {
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm('Delete this recurring task?')) return;
     await api.deleteRecurring(id);
     setRows((r) => r.filter((row) => row.id !== id));
   };
@@ -72,7 +77,7 @@ export default function RecurringTable({ area }) {
 
   return (
     <div className="table-wrap">
-      <button onClick={handleAdd}>+ Add Recurring</button>
+      {!adding && <button onClick={() => setAdding(true)}>+ Add Recurring</button>}
       <button onClick={handleRunCopy} disabled={running}>{running ? 'Running...' : 'Run Recurring Copy'}</button>
       {message && <span className="message">{message}</span>}
       <table>
@@ -85,6 +90,21 @@ export default function RecurringTable({ area }) {
           </tr>
         </thead>
         <tbody>
+          {adding && (
+            <tr>
+              <td data-label="Task List" colSpan={FIELDS.length + 3}>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Task name..."
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') { setAdding(false); setDraftName(''); } }}
+                  onBlur={commitAdd}
+                />
+              </td>
+            </tr>
+          )}
           {rows.map((row) => (
             <tr key={row.id}>
               {FIELDS.map((f) => (

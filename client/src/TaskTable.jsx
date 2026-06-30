@@ -27,6 +27,8 @@ export default function TaskTable({ list, area, allowAdd = true, allowDelete = t
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [draftName, setDraftName] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -36,11 +38,13 @@ export default function TaskTable({ list, area, allowAdd = true, allowDelete = t
 
   useEffect(() => { load(); }, [load]);
 
-  const handleAdd = async () => {
-    const name = window.prompt('Task name:');
-    if (!name || !name.trim()) return;
+  const commitAdd = async () => {
+    const name = draftName.trim();
+    setAdding(false);
+    setDraftName('');
+    if (!name) return;
     const created = await api.createTask({
-      list, task_name: name.trim(), progress: 'Not Started', area: area || 'Personal',
+      list, task_name: name, progress: 'Not Started', area: area || 'Personal',
     });
     setRows((r) => [created, ...r]);
   };
@@ -56,6 +60,7 @@ export default function TaskTable({ list, area, allowAdd = true, allowDelete = t
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm('Delete this task?')) return;
     await api.deleteTask(id);
     setRows((r) => r.filter((row) => row.id !== id));
   };
@@ -65,7 +70,7 @@ export default function TaskTable({ list, area, allowAdd = true, allowDelete = t
 
   return (
     <div className="table-wrap">
-      {allowAdd && <button onClick={handleAdd}>+ Add Task</button>}
+      {allowAdd && !adding && <button onClick={() => setAdding(true)}>+ Add Task</button>}
       <table>
         <thead>
           <tr>
@@ -75,6 +80,21 @@ export default function TaskTable({ list, area, allowAdd = true, allowDelete = t
           </tr>
         </thead>
         <tbody>
+          {adding && (
+            <tr>
+              <td data-label="Task List" colSpan={FIELDS.length + TIMESTAMP_FIELDS.length + (allowDelete ? 1 : 0)}>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Task name..."
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') { setAdding(false); setDraftName(''); } }}
+                  onBlur={commitAdd}
+                />
+              </td>
+            </tr>
+          )}
           {rows.map((row) => (
             <tr key={row.id}>
               {FIELDS.map((f) => (
