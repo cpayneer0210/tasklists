@@ -198,9 +198,10 @@ app.get('/api/dashboard', async (req, res) => {
   const { area } = req.query;
   const areaClause = area ? ' AND area = ?' : '';
   const areaArgs = area ? [area] : [];
-  const pending = await getAll(
-    `SELECT * FROM tasks WHERE progress = 'Pending'${areaClause} ORDER BY deadline ASC`,
-    areaArgs,
+  const today = new Date().toISOString().slice(0, 10);
+const pending = await getAll(
+`SELECT * FROM tasks WHERE list = 'task_list' AND (progress = 'Pending' OR (deadline IS NOT NULL AND deadline != '' AND deadline < ?))${areaClause} ORDER BY deadline ASC`,
+[today, ...areaArgs],
   );
   const calendarRows = await getAll(
     `SELECT * FROM tasks WHERE deadline IS NOT NULL AND deadline != '' AND list != 'done'${areaClause}`,
