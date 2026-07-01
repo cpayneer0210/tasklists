@@ -60,3 +60,11 @@ export function daysSinceLast(lastAdded) {
   const diffMs = Date.now() - new Date(lastAdded).getTime();
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
+
+export function nextDue(day, lastAdded) {
+  const intervals = { Daily: 1, Weekly: 7, Monthly: 30, Quarterly: 91, 'Semi-Annual': 182, Annual: 365 };
+  const days = intervals[day] || 7;
+  const base = lastAdded ? new Date(lastAdded) : new Date();
+  const next = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+  return next.toISOString().slice(0, 10);
+}
