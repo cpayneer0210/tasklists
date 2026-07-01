@@ -2,8 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import { db, rowsToObjects } from './db.js';
-import { applyTaskTimestamps, applyMoveDone, daysSinceLast } from './taskLogic.js';
+import { applyTaskTimestamps, applyMoveDone, daysSinceLast, nextDue } from './taskLogic.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -12,7 +13,7 @@ app.use(express.json());
 
 const TASK_COLUMNS = [
   'list', 'type', 'task_name', 'progress', 'priority', 'deadline', 'link',
-  'task_focus', 'notes', 'value_add', 'task_added', 'task_started',
+  'task_focus', 'notes', 'value_add', 'tags', 'task_added', 'task_started',
   'task_complete', 'met_deadline', 'week_start', 'area',
 ];
 
@@ -97,7 +98,7 @@ app.get('/api/recurring', async (req, res) => {
   const rows = area
     ? await getAll('SELECT * FROM recurring WHERE area = ? ORDER BY id DESC', [area])
     : await getAll('SELECT * FROM recurring ORDER BY id DESC', []);
-  const withComputed = rows.map((r) => ({ ...r, days_since_last: daysSinceLast(r.last_added) }));
+  const withComputed = rows.map((r) => ({ ...r, days_since_last: daysSinceLast(r.last_added), next_due: nextDue(r.day, r.last_added) }));
   res.json(withComputed);
 });
 
@@ -111,7 +112,7 @@ app.post('/api/recurring', async (req, res) => {
     args: cols.map((c) => body[c]),
   });
   const row = await getOne('SELECT * FROM recurring WHERE id = ?', [Number(rs.lastInsertRowid)]);
-  res.status(201).json({ ...row, days_since_last: daysSinceLast(row.last_added) });
+  res.status(201).json({ ...row, days_since_last: daysSinceLast(row.last_added), next_due: nextDue(row.day, row.last_added) });
 });
 
 app.put('/api/recurring/:id', async (req, res) => {
@@ -126,7 +127,7 @@ app.put('/api/recurring/:id', async (req, res) => {
     args: [...cols.map((c) => patch[c]), req.params.id],
   });
   const row = await getOne('SELECT * FROM recurring WHERE id = ?', [req.params.id]);
-  res.json({ ...row, days_since_last: daysSinceLast(row.last_added) });
+  res.json({ ...row, days_since_last: daysSinceLast(row.last_added), next_due: nextDue(row.day, row.last_added) });
 });
 
 app.delete('/api/recurring/:id', async (req, res) => {
@@ -198,15 +199,126 @@ app.get('/api/dashboard', async (req, res) => {
   const { area } = req.query;
   const areaClause = area ? ' AND area = ?' : '';
   const areaArgs = area ? [area] : [];
+  const today = new Date().toISOString().slice(0, 10);
   const pending = await getAll(
-    `SELECT * FROM tasks WHERE progress = 'Pending'${areaClause} ORDER BY deadline ASC`,
-    areaArgs,
+    `SELECT * FROM tasks WHERE list = 'task_list' AND (progress = 'Pending' OR (deadline IS NOT NULL AND deadline != '' AND deadline < ?))${areaClause} ORDER BY deadline ASC`,
+    [today, ...areaArgs],
   );
   const calendarRows = await getAll(
     `SELECT * FROM tasks WHERE deadline IS NOT NULL AND deadline != '' AND list != 'done'${areaClause}`,
     areaArgs,
   );
   res.json({ pending, calendar: calendarRows });
+});
+
+// --- Trello sync ---
+// Pulls cards from one configured Trello list and creates a task for each
+// card not already imported (matched by trello_card_id).
+app.get('/api/integrations/trello/sync', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  const { TRELLO_API_KEY, TRELLO_TOKEN, TRELLO_LIST_ID } = process.env;
+  if (!TRELLO_API_KEY || !TRELLO_TOKEN || !TRELLO_LIST_ID) {
+    return res.status(500).json({ error: 'Trello integration not configured' });
+  }
+
+  const url = `https://api.trello.com/1/lists/${TRELLO_LIST_ID}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`;
+  const trelloRes = await fetch(url);
+  if (!trelloRes.ok) {
+    return res.status(502).json({ error: `Trello API error: ${trelloRes.status}` });
+  }
+  const cards = await trelloRes.json();
+
+  const existing = await getAll('SELECT trello_card_id FROM tasks WHERE trello_card_id IS NOT NULL', []);
+  const known = new Set(existing.map((r) => r.trello_card_id));
+
+  const now = new Date().toISOString();
+  const created = [];
+  for (const card of cards) {
+    if (known.has(card.id)) continue;
+    const rs = await db.execute({
+      sql: `INSERT INTO tasks (list, task_name, progress, deadline, link, task_added, area, trello_card_id)
+            VALUES ('task_list', ?, 'Not Started', ?, ?, ?, 'Work', ?)`,
+      args: [card.name, card.due, card.shortUrl, now, card.id],
+    });
+    created.push(await getOne('SELECT * FROM tasks WHERE id = ?', [Number(rs.lastInsertRowid)]));
+  }
+
+  res.json({ created, count: created.length });
+});
+
+// --- Google Sheets sync ---
+// Reads a "publish to web" CSV export of a sheet with columns
+// source, text, link, date. Each row becomes a task (deduped by a hash
+// of its own contents) unless already imported.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field); field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else {
+      field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+app.get('/api/integrations/sheets/sync', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  const { SHEETS_CSV_URL } = process.env;
+  if (!SHEETS_CSV_URL) {
+    return res.status(500).json({ error: 'Sheets integration not configured' });
+  }
+
+  const sheetRes = await fetch(SHEETS_CSV_URL);
+  if (!sheetRes.ok) {
+    return res.status(502).json({ error: `Sheets fetch error: ${sheetRes.status}` });
+  }
+  const csvText = await sheetRes.text();
+  const allRows = parseCsv(csvText);
+  const dataRows = allRows.slice(1); // skip header row
+
+  const existing = await getAll('SELECT sheet_row_hash FROM tasks WHERE sheet_row_hash IS NOT NULL', []);
+  const known = new Set(existing.map((r) => r.sheet_row_hash));
+
+  const now = new Date().toISOString();
+  const created = [];
+  for (const [source, text, link, date] of dataRows) {
+    if (!text) continue;
+    const hash = crypto.createHash('sha256').update(`${source}|${text}|${link}|${date}`).digest('hex');
+    if (known.has(hash)) continue;
+    const rs = await db.execute({
+      sql: `INSERT INTO tasks (list, task_name, progress, deadline, link, task_focus, task_added, area, sheet_row_hash)
+            VALUES ('task_list', ?, 'Not Started', ?, ?, ?, ?, 'Work', ?)`,
+      args: [text, date || null, link || null, source || null, now, hash],
+    });
+    created.push(await getOne('SELECT * FROM tasks WHERE id = ?', [Number(rs.lastInsertRowid)]));
+  }
+
+  res.json({ created, count: created.length });
 });
 
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

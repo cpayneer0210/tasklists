@@ -73,5 +73,8 @@ async function ensureColumn(table, column, ddl) {
 
 await ensureColumn('tasks', 'area', "area TEXT DEFAULT 'Personal'");
 await ensureColumn('recurring', 'area', "area TEXT DEFAULT 'Personal'");
+await ensureColumn('tasks', 'trello_card_id', 'trello_card_id TEXT');
+await ensureColumn('tasks', 'sheet_row_hash', 'sheet_row_hash TEXT');
+await ensureColumn('tasks', 'tags', 'tags TEXT');
 
 export default db;

@@ -135,7 +135,7 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
-  const colSpanTotal = 1 + FIELDS.length + TIMESTAMP_FIELDS.length + (allowDelete ? 1 : 0) + 1;
+  const colSpanTotal = 1 + FIELDS.length + 1 + TIMESTAMP_FIELDS.length + (allowDelete ? 1 : 0) + 1;
 
   return (
     <div className="table-wrap">
@@ -162,6 +162,7 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
                 {f.label}{sortKey === f.key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
               </th>
             ))}
+            <th>Tags</th>
             {TIMESTAMP_FIELDS.map((f) => <th key={f.key}>{f.label}</th>)}
             {allowDelete && <th></th>}
             <th></th>
@@ -202,6 +203,11 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
                   </td>
                 );
               })}
+              <td className="tags-cell" data-label="Tags" data-empty={!row.tags ? 'true' : undefined}>
+                {row.tags ? row.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => (
+                  <span key={t} className="tag-chip">{t}</span>
+                )) : null}
+              </td>
               {TIMESTAMP_FIELDS.map((f) => (
                 <td key={f.key} className="readonly" data-label={f.label} data-empty={!row[f.key] ? 'true' : undefined}>
                   {row[f.key] ? String(row[f.key]).slice(0, 10) : ''}
@@ -254,6 +260,23 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
                   )}
                 </div>
               ))}
+            </div>
+            <div className="detail-field">
+              <label>Tags <span className="detail-hint">comma-separated</span></label>
+              <input
+                type="text"
+                placeholder="e.g. maintenance, buying guide"
+                value={expanded.tags || ''}
+                onChange={(e) => handleLocalChange(expanded.id, 'tags', e.target.value)}
+                onBlur={(e) => handleCommit(expanded.id, 'tags', e.target.value)}
+              />
+              {expanded.tags && (
+                <div className="tag-chip-preview">
+                  {expanded.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => (
+                    <span key={t} className="tag-chip">{t}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="detail-timestamps">
               {TIMESTAMP_FIELDS.filter((f) => expanded[f.key]).map((f) => (
