@@ -358,7 +358,22 @@ tr.pri-low td:nth-child(6)::before {
   margin: 1px 2px;
   white-space: nowrap;
 }
-.tags-cell { min-width: 120px; }
+.tags-cell { min-width: 150px; vertical-align: middle; }
+.tags-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 3px 6px;
+  font-size: 12px;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.tags-input:hover { border-color: var(--glass-border); background: var(--glass-bg); }
+.tags-input:focus { outline: none; border-color: var(--accent); background: var(--glass-bg); box-shadow: 0 0 0 2px rgba(76,110,245,0.15); }
+.tags-input::placeholder { color: var(--text-muted); opacity: 0.5; }
+.tag-chips-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
 .tag-chip-preview { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .detail-hint { font-size: 11px; font-weight: 400; color: var(--text-muted); margin-left: 6px; }
 

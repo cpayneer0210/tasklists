@@ -203,10 +203,22 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
                   </td>
                 );
               })}
-              <td className="tags-cell" data-label="Tags" data-empty={!row.tags ? 'true' : undefined}>
-                {row.tags ? row.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => (
-                  <span key={t} className="tag-chip">{t}</span>
-                )) : null}
+              <td className="tags-cell" data-label="Tags">
+                <input
+                  className="tags-input"
+                  type="text"
+                  placeholder="tag1, tag2"
+                  value={row.tags || ''}
+                  onChange={(e) => handleLocalChange(row.id, 'tags', e.target.value)}
+                  onBlur={(e) => handleCommit(row.id, 'tags', e.target.value)}
+                />
+                {row.tags && (
+                  <div className="tag-chips-row">
+                    {row.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => (
+                      <span key={t} className="tag-chip">{t}</span>
+                    ))}
+                  </div>
+                )}
               </td>
               {TIMESTAMP_FIELDS.map((f) => (
                 <td key={f.key} className="readonly" data-label={f.label} data-empty={!row[f.key] ? 'true' : undefined}>
