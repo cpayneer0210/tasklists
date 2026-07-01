@@ -11,13 +11,10 @@ const FIELDS = [
   { key: 'progress', label: 'Progress', type: 'select', options: PROGRESS_OPTIONS },
   { key: 'priority', label: 'Priority', type: 'select', options: PRIORITY_OPTIONS },
   { key: 'deadline', label: 'Deadline', type: 'date' },
-  { key: 'notes', label: 'Notes', type: 'text' },
 ];
 
 const DETAIL_ONLY_FIELDS = [
   { key: 'link', label: 'Link', type: 'text' },
-  { key: 'task_focus', label: 'Task Focus', type: 'text' },
-  { key: 'value_add', label: 'Value Add', type: 'text' },
 ];
 
 const ALL_DETAIL_FIELDS = [...FIELDS, ...DETAIL_ONLY_FIELDS];
