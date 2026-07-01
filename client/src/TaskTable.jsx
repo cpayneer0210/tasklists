@@ -11,11 +11,17 @@ const FIELDS = [
   { key: 'progress', label: 'Progress', type: 'select', options: PROGRESS_OPTIONS },
   { key: 'priority', label: 'Priority', type: 'select', options: PRIORITY_OPTIONS },
   { key: 'deadline', label: 'Deadline', type: 'date' },
+  { key: 'notes', label: 'Notes', type: 'text' },
+];
+
+// Detail-panel-only fields (hidden from table rows)
+const DETAIL_ONLY_FIELDS = [
   { key: 'link', label: 'Link', type: 'text' },
   { key: 'task_focus', label: 'Task Focus', type: 'text' },
-  { key: 'notes', label: 'Notes', type: 'text' },
   { key: 'value_add', label: 'Value Add', type: 'text' },
 ];
+
+const ALL_DETAIL_FIELDS = [...FIELDS, ...DETAIL_ONLY_FIELDS];
 
 const TIMESTAMP_FIELDS = [
   { key: 'task_added', label: 'Added' },
@@ -224,7 +230,7 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
             </div>
             {isOverdue(expanded) && <div className="overdue-badge">⚠ Overdue — deadline {expanded.deadline.slice(0, 10)}</div>}
             <div className="detail-fields">
-              {FIELDS.map((f) => (
+              {ALL_DETAIL_FIELDS.map((f) => (
                 <div key={f.key} className="detail-field">
                   <label>{f.label}</label>
                   {f.type === 'select' ? (
