@@ -30,4 +30,13 @@ export const api = {
 
   kanban: (area) => request(`/kanban${qs({ area })}`),
   dashboard: (area) => request(`/dashboard${qs({ area })}`),
+  stats: (area) => request(`/stats${qs({ area })}`),
+  weeklyReview: (area) => request(`/weekly-review${qs({ area })}`),
+
+  listComments: (taskId) => request(`/tasks/${taskId}/comments`),
+  addComment: (taskId, text) => request(`/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify({ text }) }),
+
+  listTasksArchived: (area) => request(`/tasks${qs({ list: 'done', area, archived: 'true' })}`),
+
+  syncTrello: () => request('/integrations/trello/sync', { method: 'POST' }),
 };

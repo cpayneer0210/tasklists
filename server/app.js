@@ -13,8 +13,8 @@ app.use(express.json());
 
 const TASK_COLUMNS = [
   'list', 'type', 'task_name', 'progress', 'priority', 'deadline', 'link',
-  'task_focus', 'notes', 'value_add', 'tags', 'task_added', 'task_started',
-  'task_complete', 'met_deadline', 'week_start', 'area',
+  'task_focus', 'notes', 'value_add', 'tags', 'subtasks', 'sort_order',
+  'task_added', 'task_started', 'task_complete', 'met_deadline', 'week_start', 'area',
 ];
 
 const RECURRING_COLUMNS = [
@@ -42,13 +42,24 @@ async function getAll(sql, args) {
 // --- Tasks ---
 
 app.get('/api/tasks', async (req, res) => {
-  const { list, area } = req.query;
+  const { list, area, archived } = req.query;
   const conditions = [];
   const args = [];
   if (list) { conditions.push('list = ?'); args.push(list); }
   if (area) { conditions.push('area = ?'); args.push(area); }
+  // Feature 10: archive filter — done tasks older than 30 days
+  if (list === 'done') {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    if (archived === 'true') {
+      conditions.push("(task_complete < ? OR (task_complete IS NULL AND task_added < ?))");
+      args.push(cutoff, cutoff);
+    } else {
+      conditions.push("(task_complete >= ? OR task_complete IS NULL)");
+      args.push(cutoff);
+    }
+  }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const rows = await getAll(`SELECT * FROM tasks ${where} ORDER BY id DESC`, args);
+  const rows = await getAll(`SELECT * FROM tasks ${where} ORDER BY COALESCE(sort_order, id) DESC`, args);
   res.json(rows);
 });
 
@@ -211,26 +222,106 @@ app.get('/api/dashboard', async (req, res) => {
   res.json({ pending, calendar: calendarRows });
 });
 
+// Feature 16: stats bar
+app.get('/api/stats', async (req, res) => {
+  const { area } = req.query;
+  const areaClause = area ? ' AND area = ?' : '';
+  const areaArgs = area ? [area] : [];
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const [doneThisWeek] = await getAll(
+    `SELECT COUNT(*) as count FROM tasks WHERE list = 'done' AND task_complete >= ?${areaClause}`,
+    [weekStart, ...areaArgs]
+  );
+  const [overdue] = await getAll(
+    `SELECT COUNT(*) as count FROM tasks WHERE list = 'task_list' AND deadline IS NOT NULL AND deadline < ? AND progress != 'Done'${areaClause}`,
+    [today, ...areaArgs]
+  );
+  const [dueSoon] = await getAll(
+    `SELECT COUNT(*) as count FROM tasks WHERE list = 'task_list' AND deadline IS NOT NULL AND deadline >= ? AND deadline <= ?${areaClause}`,
+    [today, nextWeek, ...areaArgs]
+  );
+  res.json({ doneThisWeek: doneThisWeek.count, overdue: overdue.count, dueSoon: dueSoon.count });
+});
+
+// Feature 17: weekly review
+app.get('/api/weekly-review', async (req, res) => {
+  const { area } = req.query;
+  const areaClause = area ? ' AND area = ?' : '';
+  const areaArgs = area ? [area] : [];
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const completedThisWeek = await getAll(
+    `SELECT * FROM tasks WHERE list = 'done' AND task_complete >= ?${areaClause} ORDER BY task_complete DESC`,
+    [weekStart, ...areaArgs]
+  );
+  const overdue = await getAll(
+    `SELECT * FROM tasks WHERE list = 'task_list' AND deadline IS NOT NULL AND deadline < ? AND progress != 'Done'${areaClause} ORDER BY deadline ASC`,
+    [today, ...areaArgs]
+  );
+  const dueNextWeek = await getAll(
+    `SELECT * FROM tasks WHERE list = 'task_list' AND deadline IS NOT NULL AND deadline >= ? AND deadline <= ?${areaClause} ORDER BY deadline ASC`,
+    [today, nextWeek, ...areaArgs]
+  );
+  const recurringDue = await getAll(
+    `SELECT * FROM recurring WHERE to_add = 'Yes'${areaClause}`,
+    areaArgs
+  );
+  res.json({ completedThisWeek, overdue, dueNextWeek, recurringDue });
+});
+
+// Feature 13: comments
+app.get('/api/tasks/:id/comments', async (req, res) => {
+  const rows = await getAll('SELECT * FROM task_comments WHERE task_id = ? ORDER BY created_at ASC', [req.params.id]);
+  res.json(rows);
+});
+
+app.post('/api/tasks/:id/comments', async (req, res) => {
+  const { text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: 'text required' });
+  const now = new Date().toISOString();
+  const rs = await db.execute({
+    sql: 'INSERT INTO task_comments (task_id, text, created_at) VALUES (?, ?, ?)',
+    args: [req.params.id, text.trim(), now],
+  });
+  res.status(201).json({ id: Number(rs.lastInsertRowid), task_id: Number(req.params.id), text: text.trim(), created_at: now });
+});
+
+
 // --- Trello sync ---
-// Pulls cards from one configured Trello list and creates a task for each
-// card not already imported (matched by trello_card_id).
-app.get('/api/integrations/trello/sync', async (req, res) => {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
-    return res.status(401).json({ error: 'unauthorized' });
+// Pulls all cards from a board (via TRELLO_BOARD_ID) and imports any not yet
+// seen (matched by trello_card_id). List name is mapped to progress status.
+function trelloListToProgress(listName) {
+  const n = listName.toLowerCase();
+  if (/done|complet|finish|closed|archive/.test(n)) return 'Done';
+  if (/doing|in.progress|progress|pending|active|current|started|wip/.test(n)) return 'Pending';
+  return 'Not Started';
+}
+
+app.post('/api/integrations/trello/sync', async (req, res) => {
+  const { TRELLO_API_KEY, TRELLO_TOKEN, TRELLO_BOARD_ID } = process.env;
+  if (!TRELLO_API_KEY || !TRELLO_TOKEN || !TRELLO_BOARD_ID) {
+    return res.status(500).json({ error: 'Trello integration not configured. Set TRELLO_API_KEY, TRELLO_TOKEN and TRELLO_BOARD_ID in environment variables.' });
   }
 
-  const { TRELLO_API_KEY, TRELLO_TOKEN, TRELLO_LIST_ID } = process.env;
-  if (!TRELLO_API_KEY || !TRELLO_TOKEN || !TRELLO_LIST_ID) {
-    return res.status(500).json({ error: 'Trello integration not configured' });
-  }
+  const base = `https://api.trello.com/1`;
+  const auth = `key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`;
 
-  const url = `https://api.trello.com/1/lists/${TRELLO_LIST_ID}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`;
-  const trelloRes = await fetch(url);
-  if (!trelloRes.ok) {
-    return res.status(502).json({ error: `Trello API error: ${trelloRes.status}` });
-  }
-  const cards = await trelloRes.json();
+  // Fetch all lists on the board to build id→progress map
+  const listsRes = await fetch(`${base}/boards/${TRELLO_BOARD_ID}/lists?${auth}`);
+  if (!listsRes.ok) return res.status(502).json({ error: `Trello lists error: ${listsRes.status}` });
+  const lists = await listsRes.json();
+  const listProgress = Object.fromEntries(lists.map((l) => [l.id, trelloListToProgress(l.name)]));
+  const listName = Object.fromEntries(lists.map((l) => [l.id, l.name]));
+
+  // Fetch all open cards on the board
+  const cardsRes = await fetch(`${base}/boards/${TRELLO_BOARD_ID}/cards?filter=open&${auth}`);
+  if (!cardsRes.ok) return res.status(502).json({ error: `Trello cards error: ${cardsRes.status}` });
+  const cards = await cardsRes.json();
 
   const existing = await getAll('SELECT trello_card_id FROM tasks WHERE trello_card_id IS NOT NULL', []);
   const known = new Set(existing.map((r) => r.trello_card_id));
@@ -239,15 +330,17 @@ app.get('/api/integrations/trello/sync', async (req, res) => {
   const created = [];
   for (const card of cards) {
     if (known.has(card.id)) continue;
+    const progress = listProgress[card.idList] || 'Not Started';
+    const list = progress === 'Done' ? 'done' : 'task_list';
     const rs = await db.execute({
-      sql: `INSERT INTO tasks (list, task_name, progress, deadline, link, task_added, area, trello_card_id)
-            VALUES ('task_list', ?, 'Not Started', ?, ?, ?, 'Work', ?)`,
-      args: [card.name, card.due, card.shortUrl, now, card.id],
+      sql: `INSERT INTO tasks (list, task_name, progress, deadline, link, notes, task_added, area, trello_card_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Work', ?)`,
+      args: [list, card.name, progress, card.due ? card.due.slice(0, 10) : null, card.shortUrl, card.desc || null, now, card.id],
     });
     created.push(await getOne('SELECT * FROM tasks WHERE id = ?', [Number(rs.lastInsertRowid)]));
   }
 
-  res.json({ created, count: created.length });
+  res.json({ created, count: created.length, lists: lists.map((l) => ({ name: l.name, progress: listProgress[l.id] })) });
 });
 
 // --- Google Sheets sync ---

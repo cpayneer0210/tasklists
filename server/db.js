@@ -76,5 +76,16 @@ await ensureColumn('recurring', 'area', "area TEXT DEFAULT 'Personal'");
 await ensureColumn('tasks', 'trello_card_id', 'trello_card_id TEXT');
 await ensureColumn('tasks', 'sheet_row_hash', 'sheet_row_hash TEXT');
 await ensureColumn('tasks', 'tags', 'tags TEXT');
+await ensureColumn('tasks', 'subtasks', 'subtasks TEXT');
+await ensureColumn('tasks', 'sort_order', 'sort_order INTEGER');
+
+await db.execute(`
+CREATE TABLE IF NOT EXISTS task_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)
+`);
 
 export default db;
