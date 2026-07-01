@@ -89,6 +89,23 @@ nav {
   flex-shrink: 0;
 }
 
+.trello-sync-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 121, 191, 0.35);
+  background: rgba(0, 121, 191, 0.12);
+  color: #0079bf;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.trello-sync-btn:hover { background: rgba(0, 121, 191, 0.22); box-shadow: 0 2px 8px rgba(0,121,191,0.2); }
+.trello-sync-btn:disabled { opacity: 0.6; cursor: default; }
+.trello-msg { font-size: 12px; font-weight: 500; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+
 nav button {
   background: transparent;
   color: var(--text-muted);
@@ -123,7 +140,7 @@ main { flex: 1; overflow: auto; padding: 0 16px 16px; }
 }
 
 table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; margin-top: 8px; }
-th, td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--glass-border); }
+th, td { padding: 4px 8px; font-size: 13px; border-bottom: 1px solid var(--glass-border); }
 th {
   text-align: left;
   font-weight: 600;
@@ -137,39 +154,49 @@ td { vertical-align: middle; }
 
 /* sticky columns */
 th:nth-child(1), td:nth-child(1) {
-  min-width: 80px;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
   position: sticky;
   left: 0;
   background: var(--glass-bg-strong);
   z-index: 1;
 }
 th:nth-child(2), td:nth-child(2) {
-  min-width: 90px;
+  min-width: 70px;
+  width: 70px;
   position: sticky;
-  left: 80px;
+  left: 32px;
   background: var(--glass-bg-strong);
   z-index: 1;
 }
 th:nth-child(3), td:nth-child(3) {
-  min-width: 180px;
+  min-width: 80px;
+  width: 80px;
   position: sticky;
-  left: 170px;
+  left: 102px;
   background: var(--glass-bg-strong);
   z-index: 1;
 }
-/* column widths */
-th:nth-child(4), td:nth-child(4)  { min-width: 110px; }  /* Progress */
-th:nth-child(5), td:nth-child(5)  { min-width: 100px; }  /* Priority */
-th:nth-child(6), td:nth-child(6)  { min-width: 110px; }  /* Deadline */
-th:nth-child(7), td:nth-child(7)  { min-width: 100px; }  /* Link */
-th:nth-child(8), td:nth-child(8)  { min-width: 120px; }  /* Task Focus */
-th:nth-child(9), td:nth-child(9)  { min-width: 140px; }  /* Notes */
-th:nth-child(10), td:nth-child(10) { min-width: 120px; } /* Value Add */
-th:nth-child(11), td:nth-child(11) { min-width: 90px; }  /* Task Added */
-th:nth-child(12), td:nth-child(12) { min-width: 90px; }  /* Task Started */
-th:nth-child(13), td:nth-child(13) { min-width: 90px; }  /* Task Complete */
-th:nth-child(14), td:nth-child(14) { min-width: 90px; }  /* Met Deadline */
-th:last-child, td:last-child       { min-width: 70px; }  /* Delete */
+th:nth-child(4), td:nth-child(4) {
+  min-width: 160px;
+  position: sticky;
+  left: 182px;
+  background: var(--glass-bg-strong);
+  z-index: 1;
+}
+/* column widths — sized to fit content */
+th:nth-child(5), td:nth-child(5)  { min-width: 100px; width: 100px; }  /* Progress */
+th:nth-child(6), td:nth-child(6)  { min-width: 95px;  width: 95px;  }  /* Priority */
+th:nth-child(7), td:nth-child(7)  { min-width: 110px; width: 110px; }  /* Deadline */
+th:nth-child(8), td:nth-child(8)  { min-width: 120px; }                 /* Notes */
+th:nth-child(9), td:nth-child(9)  { min-width: 150px; }                 /* Tags */
+th:nth-child(10), td:nth-child(10) { min-width: 88px; width: 88px; }   /* Added */
+th:nth-child(11), td:nth-child(11) { min-width: 80px; width: 80px; }   /* Started */
+th:nth-child(12), td:nth-child(12) { min-width: 80px; width: 80px; }   /* Complete */
+th:nth-child(13), td:nth-child(13) { min-width: 90px; width: 90px; }   /* Met Deadline */
+th:nth-child(14), td:nth-child(14) { width: 60px; min-width: 60px; }   /* Delete */
+th:last-child, td:last-child       { width: 36px; min-width: 36px; }   /* Expand */
 tbody tr { transition: background 0.15s ease; }
 tbody tr:hover { background: var(--row-hover); }
 td.readonly { background: var(--readonly-bg); color: var(--text-muted); border-radius: 8px; }
@@ -177,9 +204,9 @@ td.readonly { background: var(--readonly-bg); color: var(--text-muted); border-r
 input, select {
   width: 100%;
   border: 1px solid transparent;
-  padding: 6px 8px;
+  padding: 3px 6px;
   font-size: 13px;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--glass-bg-strong);
   color: var(--text);
   font-family: inherit;
