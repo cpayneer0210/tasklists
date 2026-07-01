@@ -88,4 +88,26 @@ CREATE TABLE IF NOT EXISTS task_comments (
 )
 `);
 
+await db.execute(`
+CREATE TABLE IF NOT EXISTS projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  color TEXT,
+  area TEXT,
+  created_at TEXT NOT NULL
+)
+`);
+
+await db.execute(`
+CREATE TABLE IF NOT EXISTS task_dependencies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id INTEGER NOT NULL,
+  depends_on_id INTEGER NOT NULL,
+  UNIQUE(task_id, depends_on_id)
+)
+`);
+
+await ensureColumn('tasks', 'project_id', 'project_id INTEGER');
+await ensureColumn('recurring', 'repeat_from', "repeat_from TEXT DEFAULT 'fixed'");
+
 export default db;

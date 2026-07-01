@@ -343,6 +343,77 @@ app.post('/api/integrations/trello/sync', async (req, res) => {
   res.json({ created, count: created.length, lists: lists.map((l) => ({ name: l.name, progress: listProgress[l.id] })) });
 });
 
+// --- Projects ---
+
+app.get('/api/projects', async (req, res) => {
+  const { area } = req.query;
+  const rows = area
+    ? await getAll('SELECT * FROM projects WHERE area = ? ORDER BY name ASC', [area])
+    : await getAll('SELECT * FROM projects ORDER BY name ASC', []);
+  res.json(rows);
+});
+
+app.post('/api/projects', async (req, res) => {
+  const { name, color, area } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
+  const now = new Date().toISOString();
+  const rs = await db.execute({
+    sql: 'INSERT INTO projects (name, color, area, created_at) VALUES (?, ?, ?, ?)',
+    args: [name.trim(), color || '#4c6ef5', area || 'Personal', now],
+  });
+  res.status(201).json(await getOne('SELECT * FROM projects WHERE id = ?', [Number(rs.lastInsertRowid)]));
+});
+
+app.put('/api/projects/:id', async (req, res) => {
+  const { name, color, area } = req.body;
+  const existing = await getOne('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+  if (!existing) return res.status(404).json({ error: 'not found' });
+  const patch = { name: name ?? existing.name, color: color ?? existing.color, area: area ?? existing.area };
+  await db.execute({
+    sql: 'UPDATE projects SET name = ?, color = ?, area = ? WHERE id = ?',
+    args: [patch.name, patch.color, patch.area, req.params.id],
+  });
+  res.json(await getOne('SELECT * FROM projects WHERE id = ?', [req.params.id]));
+});
+
+app.delete('/api/projects/:id', async (req, res) => {
+  await db.execute({ sql: 'UPDATE tasks SET project_id = NULL WHERE project_id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM projects WHERE id = ?', args: [req.params.id] });
+  res.status(204).end();
+});
+
+// --- Dependencies ---
+
+app.get('/api/tasks/:id/dependencies', async (req, res) => {
+  const deps = await getAll(
+    'SELECT t.* FROM tasks t JOIN task_dependencies d ON t.id = d.depends_on_id WHERE d.task_id = ?',
+    [req.params.id]
+  );
+  res.json(deps);
+});
+
+app.post('/api/tasks/:id/dependencies', async (req, res) => {
+  const { depends_on_id } = req.body;
+  if (!depends_on_id) return res.status(400).json({ error: 'depends_on_id required' });
+  try {
+    await db.execute({
+      sql: 'INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)',
+      args: [req.params.id, depends_on_id],
+    });
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  res.status(201).json({ task_id: Number(req.params.id), depends_on_id: Number(depends_on_id) });
+});
+
+app.delete('/api/tasks/:id/dependencies/:depId', async (req, res) => {
+  await db.execute({
+    sql: 'DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?',
+    args: [req.params.id, req.params.depId],
+  });
+  res.status(204).end();
+});
+
 // --- Google Sheets sync ---
 // Reads a "publish to web" CSV export of a sheet with columns
 // source, text, link, date. Each row becomes a task (deduped by a hash

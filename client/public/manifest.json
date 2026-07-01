@@ -1,0 +1,13 @@
+{
+  "name": "Task Manager",
+  "short_name": "Tasks",
+  "description": "Personal task management with Kanban, weekly review, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#dce8ff",
+  "theme_color": "#4c6ef5",
+  "icons": [
+    { "src": "/pwa-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

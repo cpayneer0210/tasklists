@@ -14,6 +14,7 @@ const FIELDS = [
   { key: 'link', label: 'Link', type: 'text' },
   { key: 'task_focus', label: 'Task Focus', type: 'text' },
   { key: 'to_add', label: 'To Add', type: 'select', options: ['Yes', 'No'] },
+  { key: 'repeat_from', label: 'Repeat From', type: 'select', options: ['fixed', 'completion'] },
 ];
 
 export default function RecurringTable({ area }) {

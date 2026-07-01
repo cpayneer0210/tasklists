@@ -39,4 +39,13 @@ export const api = {
   listTasksArchived: (area) => request(`/tasks${qs({ list: 'done', area, archived: 'true' })}`),
 
   syncTrello: () => request('/integrations/trello/sync', { method: 'POST' }),
+
+  listProjects: (area) => request(`/projects${qs({ area })}`),
+  createProject: (data) => request('/projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateProject: (id, data) => request(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteProject: (id) => request(`/projects/${id}`, { method: 'DELETE' }),
+
+  listDependencies: (taskId) => request(`/tasks/${taskId}/dependencies`),
+  addDependency: (taskId, dependsOnId) => request(`/tasks/${taskId}/dependencies`, { method: 'POST', body: JSON.stringify({ depends_on_id: dependsOnId }) }),
+  removeDependency: (taskId, depId) => request(`/tasks/${taskId}/dependencies/${depId}`, { method: 'DELETE' }),
 };

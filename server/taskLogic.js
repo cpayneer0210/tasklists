@@ -61,10 +61,13 @@ export function daysSinceLast(lastAdded) {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-export function nextDue(day, lastAdded) {
+export function nextDue(day, lastAdded, repeatFrom, lastCompleted) {
   const intervals = { Daily: 1, Weekly: 7, Monthly: 30, Quarterly: 91, 'Semi-Annual': 182, Annual: 365 };
   const days = intervals[day] || 7;
-  const base = lastAdded ? new Date(lastAdded) : new Date();
+  // repeat_from='completion': count from when last completed rather than when last added
+  const base = (repeatFrom === 'completion' && lastCompleted)
+    ? new Date(lastCompleted)
+    : (lastAdded ? new Date(lastAdded) : new Date());
   const next = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
   return next.toISOString().slice(0, 10);
 }

@@ -125,42 +125,172 @@ function DateCell({ value, onChange, onBlur }) {
   );
 }
 
-// Feature 11: subtask checklist in detail panel
+// Feature 8: nested subtask checklist (recursive children array)
+function SubtaskItem({ item, path, onUpdate, onRemove }) {
+  const [expanded, setExpanded] = useState(true);
+  const [childDraft, setChildDraft] = useState('');
+  const children = item.children || [];
+
+  const addChild = () => {
+    const text = childDraft.trim();
+    if (!text) return;
+    onUpdate(path, { ...item, children: [...children, { text, done: false, children: [] }] });
+    setChildDraft('');
+  };
+
+  return (
+    <div className="subtask-item-wrap">
+      <div className={`subtask-item${item.done ? ' subtask-done' : ''}`}>
+        {children.length > 0 && (
+          <button className="subtask-expand" onClick={() => setExpanded((e) => !e)}>{expanded ? '▾' : '▸'}</button>
+        )}
+        <input type="checkbox" checked={item.done} onChange={() => onUpdate(path, { ...item, done: !item.done })} />
+        <span className="subtask-text">{item.text}</span>
+        <button className="subtask-remove" onClick={() => onRemove(path)}>✕</button>
+      </div>
+      {expanded && children.length > 0 && (
+        <div className="subtask-children">
+          {children.map((child, i) => (
+            <SubtaskItem
+              key={i}
+              item={child}
+              path={[...path, 'children', i]}
+              onUpdate={onUpdate}
+              onRemove={onRemove}
+            />
+          ))}
+        </div>
+      )}
+      {expanded && (
+        <div className="subtask-add subtask-child-add">
+          <input type="text" placeholder="Add sub-item…" value={childDraft}
+            onChange={(e) => setChildDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addChild(); }} />
+          <button onClick={addChild}>+</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SubtaskList({ taskId, subtasks, onChange }) {
   const items = (() => { try { return JSON.parse(subtasks || '[]'); } catch { return []; } })();
   const [draft, setDraft] = useState('');
 
   const save = (next) => onChange(JSON.stringify(next));
-  const toggle = (i) => { const n = [...items]; n[i] = { ...n[i], done: !n[i].done }; save(n); };
-  const remove = (i) => { const n = items.filter((_, idx) => idx !== i); save(n); };
+
+  // Update a nested item at a given path
+  const updateAtPath = (root, path, value) => {
+    if (path.length === 0) return value;
+    const [head, ...rest] = path;
+    if (Array.isArray(root)) {
+      const arr = [...root];
+      arr[head] = updateAtPath(arr[head], rest, value);
+      return arr;
+    }
+    return { ...root, [head]: updateAtPath(root[head], rest, value) };
+  };
+
+  const removeAtPath = (root, path) => {
+    if (path.length === 1) {
+      const arr = [...root];
+      arr.splice(path[0], 1);
+      return arr;
+    }
+    const [head, ...rest] = path;
+    if (Array.isArray(root)) {
+      const arr = [...root];
+      arr[head] = removeAtPath(arr[head], rest);
+      return arr;
+    }
+    return { ...root, [head]: removeAtPath(root[head], rest) };
+  };
+
+  const handleUpdate = (path, value) => { save(updateAtPath(items, path, value)); };
+  const handleRemove = (path) => { save(removeAtPath(items, path)); };
+
+  const countAll = (arr) => arr.reduce((acc, t) => acc + 1 + countAll(t.children || []), 0);
+  const countDone = (arr) => arr.reduce((acc, t) => acc + (t.done ? 1 : 0) + countDone(t.children || []), 0);
+  const total = countAll(items);
+  const done = countDone(items);
+
   const add = () => {
     const text = draft.trim();
     if (!text) return;
-    save([...items, { text, done: false }]);
+    save([...items, { text, done: false, children: [] }]);
     setDraft('');
   };
 
-  const done = items.filter((t) => t.done).length;
-
   return (
     <div className="subtask-list">
-      {items.length > 0 && <div className="subtask-progress-bar"><div style={{ width: `${(done / items.length) * 100}%` }} /></div>}
+      {total > 0 && <div className="subtask-progress-bar"><div style={{ width: `${(done / total) * 100}%` }} /></div>}
       {items.map((t, i) => (
-        <div key={i} className={`subtask-item${t.done ? ' subtask-done' : ''}`}>
-          <input type="checkbox" checked={t.done} onChange={() => toggle(i)} />
-          <span>{t.text}</span>
-          <button className="subtask-remove" onClick={() => remove(i)}>✕</button>
-        </div>
+        <SubtaskItem key={i} item={t} path={[i]} onUpdate={handleUpdate} onRemove={handleRemove} />
       ))}
       <div className="subtask-add">
-        <input
-          type="text"
-          placeholder="Add subtask…"
-          value={draft}
+        <input type="text" placeholder="Add subtask…" value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
-        />
+          onKeyDown={(e) => { if (e.key === 'Enter') add(); }} />
         <button onClick={add}>+</button>
+      </div>
+    </div>
+  );
+}
+
+// Feature 10: task dependencies
+function DependenciesPanel({ taskId }) {
+  const [deps, setDeps] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([api.listDependencies(taskId), api.listTasks('task_list', '')])
+      .then(([d, all]) => { setDeps(d); setAllTasks(all); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [taskId]);
+
+  const addDep = async (depId) => {
+    await api.addDependency(taskId, depId).catch(() => {});
+    const dep = allTasks.find((t) => t.id === depId);
+    if (dep && !deps.find((d) => d.id === depId)) setDeps((prev) => [...prev, dep]);
+    setSearch('');
+  };
+
+  const removeDep = async (depId) => {
+    await api.removeDependency(taskId, depId).catch(() => {});
+    setDeps((prev) => prev.filter((d) => d.id !== depId));
+  };
+
+  const suggestions = search.length > 1
+    ? allTasks.filter((t) => t.id !== taskId && !deps.find((d) => d.id === t.id) && t.task_name?.toLowerCase().includes(search.toLowerCase())).slice(0, 5)
+    : [];
+
+  const isBlocked = deps.some((d) => d.progress !== 'Done');
+
+  if (loading) return null;
+
+  return (
+    <div className="deps-panel">
+      <label className="detail-field-label">Blocked by {isBlocked && <span className="deps-blocked-badge">🔒 Blocked</span>}</label>
+      {deps.map((d) => (
+        <div key={d.id} className={`dep-item${d.progress === 'Done' ? ' dep-done' : ' dep-blocking'}`}>
+          <span>{d.task_name}</span>
+          <span className="dep-status">{d.progress}</span>
+          <button className="dep-remove" onClick={() => removeDep(d.id)}>✕</button>
+        </div>
+      ))}
+      <div className="dep-search-wrap">
+        <input type="text" placeholder="Add blocker…" value={search}
+          onChange={(e) => setSearch(e.target.value)} />
+        {suggestions.length > 0 && (
+          <div className="dep-suggestions">
+            {suggestions.map((t) => (
+              <div key={t.id} className="dep-suggestion" onClick={() => addDep(t.id)}>{t.task_name}</div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -384,7 +514,10 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
 
   const renderRow = (row) => {
     const subtasks = (() => { try { return JSON.parse(row.subtasks || '[]'); } catch { return []; } })();
-    const subtaskDone = subtasks.filter((t) => t.done).length;
+    const countAll = (arr) => arr.reduce((acc, t) => acc + 1 + countAll(t.children || []), 0);
+    const countDone = (arr) => arr.reduce((acc, t) => acc + (t.done ? 1 : 0) + countDone(t.children || []), 0);
+    const subtaskTotal = countAll(subtasks);
+    const subtaskDone = countDone(subtasks);
     const rel = relativeDate(row.deadline);
 
     return (
@@ -447,7 +580,7 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
         ))}
         {allowDelete && <td><button onClick={() => handleDelete(row.id)}>Delete</button></td>}
         <td>
-          {subtasks.length > 0 && <span className="subtask-badge">{subtaskDone}/{subtasks.length}</span>}
+          {subtaskTotal > 0 && <span className="subtask-badge">{subtaskDone}/{subtaskTotal}</span>}
           <button className="expand-btn" onClick={() => setExpanded(row)}>⋯</button>
         </td>
       </tr>
@@ -609,6 +742,8 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
                 <div key={f.key}><strong>{f.label}:</strong> {String(expanded[f.key]).slice(0, 10)}</div>
               ))}
             </div>
+            {/* Feature 10: dependencies */}
+            <DependenciesPanel taskId={expanded.id} />
             {/* Feature 13: comments */}
             <CommentThread taskId={expanded.id} />
           </div>
