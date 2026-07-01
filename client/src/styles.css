@@ -48,6 +48,7 @@ body {
 
 nav {
   display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
   padding: 10px 14px;
   margin: 10px;
@@ -58,6 +59,7 @@ nav {
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   box-shadow: var(--glass-shadow);
+  overflow: hidden;
 }
 
 .nav-search {
@@ -68,13 +70,13 @@ nav {
   backdrop-filter: blur(12px);
   color: var(--text);
   font-size: 13px;
-  width: 180px;
+  flex: 1 1 0;
+  min-width: 60px;
   margin-left: auto;
 }
 
 .area-select {
-  margin-left: 0;
-  padding: 7px 12px;
+  padding: 7px 8px;
   border-radius: 10px;
   border: 1px solid var(--glass-border);
   background: var(--glass-bg-strong);
@@ -82,18 +84,22 @@ nav {
   color: var(--text);
   font-size: 13px;
   font-weight: 500;
-  appearance: none;
+  width: fit-content;
+  max-width: 120px;
+  flex-shrink: 0;
 }
 
 nav button {
   background: transparent;
   color: var(--text-muted);
   border: none;
-  padding: 8px 16px;
+  padding: 8px 12px;
   cursor: pointer;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
 }
 nav button:hover { background: var(--row-hover); color: var(--text); }
@@ -409,9 +415,9 @@ th.sortable:hover { color: var(--text); }
 }
 
 @media (max-width: 768px) {
-  nav { flex-wrap: wrap; }
-  .nav-search { margin-left: 0; flex: 1; min-width: 120px; width: auto; }
-  .area-select { margin-left: 0; flex: 1; min-width: 120px; }
+  nav { flex-wrap: wrap; overflow: visible; }
+  .nav-search { margin-left: 0; flex: 1 1 100%; min-width: 120px; }
+  .area-select { max-width: none; flex: 0 0 auto; }
   main { padding: 0 8px 8px; }
 
   table, thead, tbody, th, tr { display: block; }
