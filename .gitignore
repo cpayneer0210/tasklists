@@ -6,3 +6,5 @@ data/
 .env
 .vercel
 .DS_Store
+get-token.cjs
+backend-server.js
