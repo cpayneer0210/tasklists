@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from './api.js';
 import { PROGRESS_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS, AREA_OPTIONS } from './constants.js';
 import { Loading, ErrorState } from './Status.jsx';
@@ -214,7 +215,7 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
         </tbody>
       </table>
 
-      {expanded && (
+      {expanded && createPortal(
         <div className="detail-overlay" onClick={() => setExpanded(null)}>
           <div className="detail-panel" onClick={(e) => e.stopPropagation()}>
             <div className="detail-header">
@@ -254,7 +255,8 @@ export default function TaskTable({ list, area, search = '', allowAdd = true, al
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
