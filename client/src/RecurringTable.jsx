@@ -86,13 +86,14 @@ export default function RecurringTable({ area }) {
             {FIELDS.map((f) => <th key={f.key}>{f.label}</th>)}
             <th>Last Added</th>
             <th>Days Since Last</th>
+            <th>Next Due</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {adding && (
             <tr>
-              <td data-label="Task List" colSpan={FIELDS.length + 3}>
+              <td data-label="Task List" colSpan={FIELDS.length + 4}>
                 <input
                   autoFocus
                   type="text"
@@ -129,6 +130,7 @@ export default function RecurringTable({ area }) {
               ))}
               <td className="readonly" data-label="Last Added">{row.last_added ? String(row.last_added).slice(0, 10) : ''}</td>
               <td className="readonly" data-label="Days Since Last">{row.days_since_last ?? ''}</td>
+              <td className="readonly" data-label="Next Due">{row.next_due || ''}</td>
               <td data-label=""><button onClick={() => handleDelete(row.id)}>Delete</button></td>
             </tr>
           ))}

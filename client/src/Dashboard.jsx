@@ -12,6 +12,12 @@ function buildCalendar(year, month) {
   return cells;
 }
 
+const TODAY = new Date();
+const TODAY_Y = TODAY.getFullYear();
+const TODAY_M = TODAY.getMonth();
+const TODAY_D = TODAY.getDate();
+const TODAY_STR = TODAY.toISOString().slice(0, 10);
+
 export default function Dashboard({ area }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -42,18 +48,24 @@ export default function Dashboard({ area }) {
   }
 
   const monthLabel = cursor.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const isCurrentMonth = year === TODAY_Y && month === TODAY_M;
 
   return (
     <div className="dashboard">
       <div className="dashboard-pending">
-        <h3>Pending Tasks</h3>
+        <h3>Action Required</h3>
         <ul>
-          {data.pending.map((t) => (
-            <li key={t.id}>
-              [{t.area}] {t.task_name || '(untitled)'} {t.deadline && `— due ${String(t.deadline).slice(0, 10)}`}
-            </li>
-          ))}
-          {data.pending.length === 0 && <li>No pending tasks.</li>}
+          {data.pending.map((t) => {
+            const overdue = t.deadline && t.deadline.slice(0, 10) < TODAY_STR && t.progress !== 'Done';
+            return (
+              <li key={t.id} className={overdue ? 'pending-overdue' : ''}>
+                {overdue && <span className="overdue-tag">OVERDUE</span>}
+                <strong>[{t.area}]</strong> {t.task_name || '(untitled)'}
+                {t.deadline && <span className="pending-due"> — due {String(t.deadline).slice(0, 10)}</span>}
+              </li>
+            );
+          })}
+          {data.pending.length === 0 && <li>Nothing pending — all clear!</li>}
         </ul>
       </div>
       <div className="dashboard-calendar">
@@ -66,14 +78,17 @@ export default function Dashboard({ area }) {
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
             <div className="calendar-dow" key={d}>{d}</div>
           ))}
-          {cells.map((day, idx) => (
-            <div className="calendar-cell" key={idx}>
-              {day && <div className="calendar-day-num">{day}</div>}
-              {day && (tasksByDay[day] || []).map((t) => (
-                <div className="calendar-task" key={t.id} title={t.task_name}>{t.task_name}</div>
-              ))}
-            </div>
-          ))}
+          {cells.map((day, idx) => {
+            const isToday = isCurrentMonth && day === TODAY_D;
+            return (
+              <div className={`calendar-cell${isToday ? ' calendar-today' : ''}`} key={idx}>
+                {day && <div className="calendar-day-num">{day}</div>}
+                {day && (tasksByDay[day] || []).map((t) => (
+                  <div className="calendar-task" key={t.id} title={t.task_name}>{t.task_name}</div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

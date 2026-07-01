@@ -17,6 +17,7 @@ const PAGES = [
 export default function App() {
   const [page, setPage] = useState('task_list');
   const [area, setArea] = useState('');
+  const [search, setSearch] = useState('');
 
   return (
     <div className="app">
@@ -30,15 +31,22 @@ export default function App() {
             {p.label}
           </button>
         ))}
+        <input
+          className="nav-search"
+          type="search"
+          placeholder="Search tasks…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <select className="area-select" value={area} onChange={(e) => setArea(e.target.value)}>
           <option value="">All Areas</option>
           {AREA_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
       </nav>
       <main>
-        {page === 'task_list' && <TaskTable list="task_list" area={area} />}
-        {page === 'parked' && <TaskTable list="parked" area={area} />}
-        {page === 'done' && <TaskTable list="done" area={area} allowAdd={false} />}
+        {page === 'task_list' && <TaskTable list="task_list" area={area} search={search} />}
+        {page === 'parked' && <TaskTable list="parked" area={area} search={search} />}
+        {page === 'done' && <TaskTable list="done" area={area} search={search} allowAdd={false} />}
         {page === 'recurring' && <RecurringTable area={area} />}
         {page === 'kanban' && <Kanban area={area} />}
         {page === 'dashboard' && <Dashboard area={area} />}

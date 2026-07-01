@@ -15,6 +15,13 @@ const COLUMN_PROGRESS = {
   completed: 'Done',
 };
 
+const PRIORITY_COLOURS = {
+  '1 - Recurring': 'var(--accent)',
+  '2 - High': '#e03131',
+  '3 - Medium': '#f08c00',
+  '4 - Low': '#2f9e44',
+};
+
 export default function Kanban({ area }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -45,9 +52,10 @@ export default function Kanban({ area }) {
     <div className="kanban">
       {COLUMNS.map((col) => {
         const droppable = Boolean(COLUMN_PROGRESS[col.key]);
+        const isCompleted = col.key === 'completed';
         return (
           <div
-            className={`kanban-column${dragOverCol === col.key ? ' drag-over' : ''}`}
+            className={`kanban-column${dragOverCol === col.key ? ' drag-over' : ''}${col.key === 'overdue' ? ' kanban-overdue' : ''}`}
             key={col.key}
             onDragOver={droppable ? (e) => { e.preventDefault(); setDragOverCol(col.key); } : undefined}
             onDragLeave={droppable ? () => setDragOverCol((c) => (c === col.key ? null : c)) : undefined}
@@ -60,12 +68,25 @@ export default function Kanban({ area }) {
                 key={t.id}
                 draggable
                 onDragStart={(e) => e.dataTransfer.setData('text/plain', String(t.id))}
+                style={t.priority ? { borderLeft: `3px solid ${PRIORITY_COLOURS[t.priority] || 'var(--glass-border)'}` } : undefined}
               >
                 <strong>{t.task_name || '(untitled)'}</strong>
-                <div className="kanban-meta">{t.area} {t.priority && `· ${t.priority}`}</div>
-                {t.deadline && <div className="kanban-meta">Due: {String(t.deadline).slice(0, 10)}</div>}
+                <div className="kanban-meta">
+                  {t.area}{t.priority && ` · ${t.priority}`}{t.type && ` · ${t.type}`}
+                </div>
+                {isCompleted && t.task_complete && (
+                  <div className="kanban-meta">✓ {String(t.task_complete).slice(0, 10)}{t.met_deadline ? ` · ${t.met_deadline} deadline` : ''}</div>
+                )}
+                {!isCompleted && t.deadline && (
+                  <div className="kanban-meta">Due: {String(t.deadline).slice(0, 10)}</div>
+                )}
+                {t.task_focus && <div className="kanban-meta kanban-focus">↳ {t.task_focus}</div>}
+                {t.notes && <div className="kanban-note">{t.notes}</div>}
               </div>
             ))}
+            {data[col.key].length === 0 && (
+              <div className="kanban-empty">{droppable ? 'Drop here' : 'None'}</div>
+            )}
           </div>
         );
       })}
